@@ -1,0 +1,15 @@
+canvas {
+  width: 1000px;
+  height: 550px;
+  max-width: 100%;
+  display: block;
+}
+/* ✏️ Pencil cursor */
+.canvas-pencil {
+  cursor: crosshair;
+}
+
+/* 🧽 Eraser cursor */
+.canvas-eraser {
+  cursor: cell;
+}
