@@ -1,45 +1,23 @@
-/* Full page layout */
-body {
-  margin: 0;
-  padding: 0;
-  background-color: #f5f7fb;
-  font-family: Arial, sans-serif;
-}
-
-/* Header */
-h1 {
-  font-weight: 600;
-}
-
-/* Toolbar section */
-.toolbar {
-  background: #ffffff;
-  padding: 10px 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
 /* Whiteboard container */
 .whiteboard-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: 20px;
+  margin-top: 10px;
   width: 100%;
+  padding-bottom: 2rem;
 }
 
 /* Canvas styling (VERY IMPORTANT) */
-canvas {
-  width: 1000px;          /* fixed width */
-  height: 550px;          /* fixed height */
+canvas, .whiteboard-container > img {
+  width: 100%;
+  max-width: 1000px;
+  height: auto;
+  aspect-ratio: 1000 / 550;
   background-color: #ffffff;
-  border: 3px solid #000;
-  border-radius: 10px;
-
-  /* Prevent resizing issues */
-  display: block;
-  max-width: 100%;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--gray-200);
 }
 
 /* Buttons styling */

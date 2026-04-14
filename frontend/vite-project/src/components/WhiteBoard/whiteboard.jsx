@@ -1,4 +1,4 @@
-import { useEffect , useState , useLayoutEffect} from "react";
+import { useEffect , useState , useLayoutEffect, useRef } from "react";
 import rough from "roughjs";
 import "./whiteboard.css";
 
@@ -9,6 +9,20 @@ const Whiteboard = ({ canvasRef, ctxRef , elements, setElements , tool , setHist
   const[isDrawing, setIsDrawing] = useState(false);
   
   const[img , setImg] = useState(null);
+  const lastEmitTime = useRef(0);
+
+  // Helper to map mouse coordinates correctly when canvas is scaled via CSS
+  const getMappedCoordinates = (e) => {
+    if (!canvasRef.current) return { offsetX: 0, offsetY: 0 };
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      offsetX: (e.clientX - rect.left) * scaleX,
+      offsetY: (e.clientY - rect.top) * scaleY
+    };
+  };
 
   useEffect(() => {
     socket.on("whiteboard-data-response", (data) => {
@@ -41,12 +55,14 @@ const Whiteboard = ({ canvasRef, ctxRef , elements, setElements , tool , setHist
   elements.forEach((element) => {
 
     if (element.type === "pencil") {
-      roughCanvas.linearPath(element.path, {
-        stroke: element.stroke,
-        strokeWidth: element.strokeWidth,
-        roughness: 0,
-        bowing: 0,
-      });
+      if (element.path.length > 1) {
+        roughCanvas.linearPath(element.path, {
+          stroke: element.stroke,
+          strokeWidth: element.strokeWidth,
+          roughness: 0,
+          bowing: 0,
+        });
+      }
     }
 
     if (element.type === "line") {
@@ -78,10 +94,29 @@ const Whiteboard = ({ canvasRef, ctxRef , elements, setElements , tool , setHist
         }
       );
     }
+
+    if (element.type === "circle") {
+      const radiusX = Math.abs(element.x2 - element.x1) / 2;
+      const radiusY = Math.abs(element.y2 - element.y1) / 2;
+      const centerX = element.x1 + (element.x2 - element.x1) / 2;
+      const centerY = element.y1 + (element.y2 - element.y1) / 2;
+      roughCanvas.ellipse(
+        centerX,
+        centerY,
+        radiusX * 2,
+        radiusY * 2,
+        {
+          stroke: element.stroke,
+          strokeWidth: element.strokeWidth,
+          roughness: 0,
+          bowing: 0,
+        }
+      );
+    }
     // 🧽 ERASER
     if (element.type === "eraser") {
       ctx.globalCompositeOperation = "destination-out";
-      ctx.lineWidth = 20;
+      ctx.lineWidth = element.strokeWidth ? element.strokeWidth * 4 : 20; // dynamic eraser size
       ctx.lineCap = "round";
 
       ctx.beginPath();
@@ -100,10 +135,14 @@ const Whiteboard = ({ canvasRef, ctxRef , elements, setElements , tool , setHist
     }
     
   });
-  if(userId?.presenter) {
-    const canvasImage = canvasRef.current.toDataURL();
-    socket.emit("whiteboard-data",canvasImage)
 
+  if(userId?.presenter) {
+    const now = Date.now();
+    if (now - lastEmitTime.current >= 30) { // ~33 FPS throttle
+      lastEmitTime.current = now;
+      const canvasImage = canvasRef.current.toDataURL();
+      socket.emit("whiteboard-data", canvasImage);
+    }
   }
 
 }, [elements]);
@@ -112,7 +151,7 @@ const handleMouseDown = (e) => {
 
   setRedoStack([]);
 
-  const { offsetX, offsetY } = e.nativeEvent;
+  const { offsetX, offsetY } = getMappedCoordinates(e);
 
   // ✅ SAVE history BEFORE drawing
   setHistory((prev) => [...prev, elements]);
@@ -129,7 +168,7 @@ const handleMouseDown = (e) => {
     ]);
   }
 
-  if (tool === "line" || tool === "rectangle") {
+  if (tool === "line" || tool === "rectangle" || tool === "circle") {
     setElements((prev) => [
       ...prev,
       {
@@ -149,7 +188,8 @@ const handleMouseDown = (e) => {
       ...prev,
       {
         type: "eraser",
-        path: [[offsetX, offsetY]]
+        path: [[offsetX, offsetY]],
+        strokeWidth: size // pass size for eraser
       }
     ]);
   }
@@ -158,11 +198,12 @@ const handleMouseDown = (e) => {
 };
 
   const handleMouseMove = (e) => {
-  const { offsetX, offsetY } = e.nativeEvent;
+  const { offsetX, offsetY } = getMappedCoordinates(e);
 
   if (!isDrawing) return;
 
   setElements((prevElements) => {
+    if (prevElements.length === 0) return prevElements;
     const index = prevElements.length - 1;
     const element = prevElements[index];
 
@@ -175,8 +216,8 @@ const handleMouseDown = (e) => {
       );
     }
 
-    // 📏 Line / ⬛ Rectangle
-    if (element.type === "line" || element.type === "rectangle") {
+    // 📏 Line / ⬛ Rectangle / ⭕ Circle
+    if (element.type === "line" || element.type === "rectangle" || element.type === "circle") {
       return prevElements.map((el, i) =>
         i === index
           ? { ...el, x2: offsetX, y2: offsetY }
@@ -197,25 +238,34 @@ const handleMouseDown = (e) => {
 
   const handleMouseUp = () => {
     setIsDrawing(false);
+    
+    // Ensure final state after stroke finishes is perfectly synced
+    if(userId?.presenter) {
+      if(canvasRef.current) {
+        const canvasImage = canvasRef.current.toDataURL();
+        socket.emit("whiteboard-data", canvasImage);
+      }
+    }
   };
   
 
  if (!userId?.presenter) {
     return (
-      <div className="whiteboard-container shadow border bg-white" style={{ width: "1000px", height: "550px" }}>
+      <div className="w-100 d-flex justify-content-center">
         {img ? (
           <img 
             src={img} 
             alt="Shared Board" 
             style={{ 
-              width: "1000px", 
-              height: "550px", 
               display: "block",
-              backgroundColor: "white" // 👈 Ensure visibility
+              backgroundColor: "white", // 👈 Ensure visibility
+              width: "100%",
+              maxWidth: "1000px",
+              aspectRatio: "1000/550"
             }} 
           />
         ) : (
-          <div className="h-100 d-flex align-items-center justify-content-center">
+          <div className="d-flex align-items-center justify-content-center bg-white border rounded shadow-sm" style={{ width: "100%", maxWidth: "1000px", aspectRatio: "1000/550" }}>
              <p className="text-muted">Connecting to presenter...</p>
           </div>
         )}
