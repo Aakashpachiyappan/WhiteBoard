@@ -1,15 +1,11 @@
-import { useEffect , useState , useLayoutEffect, useRef } from "react";
+import { useEffect, useState, useLayoutEffect, useRef } from "react";
 import rough from "roughjs";
 import "./whiteboard.css";
 
-const roughGenerator = rough.generator();
-
-const Whiteboard = ({ canvasRef, ctxRef , elements, setElements , tool , setHistory , setRedoStack , color , size , userId , socket }) => {
-
-  const[isDrawing, setIsDrawing] = useState(false);
-  
-  const[img , setImg] = useState(null);
+const Whiteboard = ({ canvasRef, ctxRef, elements, setElements, tool, setHistory, setRedoStack, color, size, canEdit, socket }) => {
+  const [isDrawing, setIsDrawing] = useState(false);
   const lastEmitTime = useRef(0);
+  const currentDrawId = useRef(null);
 
   // Helper to map mouse coordinates correctly when canvas is scaled via CSS
   const getMappedCoordinates = (e) => {
@@ -24,266 +20,221 @@ const Whiteboard = ({ canvasRef, ctxRef , elements, setElements , tool , setHist
     };
   };
 
+  // Resize canvas internally to its computed flex size once rendered
   useEffect(() => {
-    socket.on("whiteboard-data-response", (data) => {
-      setImg(data.imgUrl);
+    const handleResize = () => {
+      if (canvasRef.current) {
+        const parent = canvasRef.current.parentElement;
+        canvasRef.current.width = parent.clientWidth;
+        canvasRef.current.height = parent.clientHeight;
+
+        // After resize, context is cleared, so we force a re-render hook by recreating context
+        const ctx = canvasRef.current.getContext("2d");
+        ctxRef.current = ctx;
+
+        // trigger roughjs re-draw (hacky but works: map elements to themselves)
+        setElements(el => [...el]);
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    // 1. Initial bulk load of all elements (Join or Undo)
+    socket.on("whiteboard-data-response", (serverElements) => {
+      setElements(serverElements);
     });
+
+    // 2. Real-time individual vector sync
+    socket.on("element-update", (element) => {
+      setElements(prev => {
+        const index = prev.findIndex(e => e.id === element.id);
+        if (index !== -1) {
+          const newArr = [...prev];
+          newArr[index] = element;
+          return newArr;
+        } else {
+          return [...prev, element];
+        }
+      });
+    });
+
+    // 3. Clear board
+    socket.on("whiteboard-clear", () => {
+      setElements([]);
+    });
+
     return () => {
       socket.off("whiteboard-data-response");
+      socket.off("element-update");
+      socket.off("whiteboard-clear");
     }
   }, [socket]);
 
-  useEffect(() => {
-    if(!canvasRef.current) return;
+  useLayoutEffect(() => {
+    if (!canvasRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const roughCanvas = rough.canvas(canvas);
 
-    ctxRef.current = ctx;
-  }, []);
+    elements.forEach((element) => {
+      if (element.type === "pencil") {
+        if (element.path.length > 1) {
+          roughCanvas.linearPath(element.path, {
+            stroke: element.stroke,
+            strokeWidth: element.strokeWidth,
+            roughness: 0,
+            bowing: 0,
+          });
+        }
+      }
 
-  useLayoutEffect(() => {
-    if (!canvasRef.current) return;
-  const canvas = canvasRef.current;
-  const ctx = canvas.getContext("2d");
+      if (element.type === "line") {
+        roughCanvas.line(
+          element.x1, element.y1, element.x2, element.y2,
+          { stroke: element.stroke, strokeWidth: element.strokeWidth, roughness: 0, bowing: 0 }
+        );
+      }
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (element.type === "rectangle") {
+        roughCanvas.rectangle(
+          element.x1, element.y1, element.x2 - element.x1, element.y2 - element.y1,
+          { stroke: element.stroke, strokeWidth: element.strokeWidth, roughness: 0, bowing: 0 }
+        );
+      }
 
-  const roughCanvas = rough.canvas(canvas);
+      if (element.type === "circle") {
+        const radiusX = Math.abs(element.x2 - element.x1) / 2;
+        const radiusY = Math.abs(element.y2 - element.y1) / 2;
+        const centerX = element.x1 + (element.x2 - element.x1) / 2;
+        const centerY = element.y1 + (element.y2 - element.y1) / 2;
+        roughCanvas.ellipse(
+          centerX, centerY, radiusX * 2, radiusY * 2,
+          { stroke: element.stroke, strokeWidth: element.strokeWidth, roughness: 0, bowing: 0 }
+        );
+      }
 
-  elements.forEach((element) => {
+      // 🧽 ERASER
+      if (element.type === "eraser") {
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.lineWidth = element.strokeWidth ? element.strokeWidth * 4 : 20;
+        ctx.lineCap = "round";
 
-    if (element.type === "pencil") {
-      if (element.path.length > 1) {
-        roughCanvas.linearPath(element.path, {
-          stroke: element.stroke,
-          strokeWidth: element.strokeWidth,
-          roughness: 0,
-          bowing: 0,
+        ctx.beginPath();
+        element.path.forEach((point, index) => {
+          if (index === 0) ctx.moveTo(point[0], point[1]);
+          else ctx.lineTo(point[0], point[1]);
         });
+        ctx.stroke();
+        ctx.globalCompositeOperation = "source-over"; // reset
       }
-    }
+    });
 
-    if (element.type === "line") {
-      roughCanvas.line(
-        element.x1,
-        element.y1,
-        element.x2,
-        element.y2,
-        {
-          stroke: element.stroke,
-          strokeWidth: element.strokeWidth,
-          roughness: 0,
-          bowing: 0,
-        }
-      );
-    }
+  }, [elements]);
 
-    if (element.type === "rectangle") {
-      roughCanvas.rectangle(
-        element.x1,
-        element.y1,
-        element.x2 - element.x1,
-        element.y2 - element.y1,
-        {
-          stroke: element.stroke,
-          strokeWidth: element.strokeWidth,
-          roughness: 0,
-          bowing: 0,
-        }
-      );
-    }
+  const handleMouseDown = (e) => {
+    if (!canEdit) return; // Disallow interactions if not approved
 
-    if (element.type === "circle") {
-      const radiusX = Math.abs(element.x2 - element.x1) / 2;
-      const radiusY = Math.abs(element.y2 - element.y1) / 2;
-      const centerX = element.x1 + (element.x2 - element.x1) / 2;
-      const centerY = element.y1 + (element.y2 - element.y1) / 2;
-      roughCanvas.ellipse(
-        centerX,
-        centerY,
-        radiusX * 2,
-        radiusY * 2,
-        {
-          stroke: element.stroke,
-          strokeWidth: element.strokeWidth,
-          roughness: 0,
-          bowing: 0,
-        }
-      );
-    }
-    // 🧽 ERASER
-    if (element.type === "eraser") {
-      ctx.globalCompositeOperation = "destination-out";
-      ctx.lineWidth = element.strokeWidth ? element.strokeWidth * 4 : 20; // dynamic eraser size
-      ctx.lineCap = "round";
+    setRedoStack([]);
+    const { offsetX, offsetY } = getMappedCoordinates(e);
 
-      ctx.beginPath();
+    // Save history BEFORE drawing
+    setHistory((prev) => [...prev, elements]);
 
-      element.path.forEach((point, index) => {
-        if (index === 0) {
-          ctx.moveTo(point[0], point[1]);
-        } else {
-          ctx.lineTo(point[0], point[1]);
-        }
-      });
+    const elementId = Date.now().toString() + Math.random().toString(36).substring(2, 5);
+    currentDrawId.current = elementId;
 
-      ctx.stroke();
+    let newElement = {};
 
-      ctx.globalCompositeOperation = "source-over"; // reset
-    }
-    
-  });
-
-  if(userId?.presenter) {
-    const now = Date.now();
-    if (now - lastEmitTime.current >= 30) { // ~33 FPS throttle
-      lastEmitTime.current = now;
-      const canvasImage = canvasRef.current.toDataURL();
-      socket.emit("whiteboard-data", canvasImage);
-    }
-  }
-
-}, [elements]);
-
-const handleMouseDown = (e) => {
-
-  setRedoStack([]);
-
-  const { offsetX, offsetY } = getMappedCoordinates(e);
-
-  // ✅ SAVE history BEFORE drawing
-  setHistory((prev) => [...prev, elements]);
-
-  if (tool === "pencil") {
-    setElements((prev) => [
-      ...prev,
-      {
-        type: "pencil",
-        path: [[offsetX, offsetY]],
-        stroke: color,
-        strokeWidth: size
-      }
-    ]);
-  }
-
-  if (tool === "line" || tool === "rectangle" || tool === "circle") {
-    setElements((prev) => [
-      ...prev,
-      {
+    if (tool === "pencil" || tool === "eraser") {
+      newElement = {
+        id: elementId,
         type: tool,
-        x1: offsetX,
-        y1: offsetY,
-        x2: offsetX,
-        y2: offsetY,
+        path: [[offsetX, offsetY]],
         stroke: color,
         strokeWidth: size
-      }
-    ]);
-  }
+      };
+    } else if (tool === "line" || tool === "rectangle" || tool === "circle") {
+      newElement = {
+        id: elementId,
+        type: tool,
+        x1: offsetX, y1: offsetY,
+        x2: offsetX, y2: offsetY,
+        stroke: color,
+        strokeWidth: size
+      };
+    }
 
-  if (tool === "eraser") {
-    setElements((prev) => [
-      ...prev,
-      {
-        type: "eraser",
-        path: [[offsetX, offsetY]],
-        strokeWidth: size // pass size for eraser
-      }
-    ]);
-  }
+    setElements((prev) => [...prev, newElement]);
+    socket.emit("element-update", newElement);
 
-  setIsDrawing(true);
-};
+    setIsDrawing(true);
+  };
 
   const handleMouseMove = (e) => {
-  const { offsetX, offsetY } = getMappedCoordinates(e);
+    if (!isDrawing || !canEdit || !currentDrawId.current) return;
+    const { offsetX, offsetY } = getMappedCoordinates(e);
 
-  if (!isDrawing) return;
+    let updatedElementWrapper = null;
 
-  setElements((prevElements) => {
-    if (prevElements.length === 0) return prevElements;
-    const index = prevElements.length - 1;
-    const element = prevElements[index];
+    setElements((prevElements) => {
+      if (prevElements.length === 0) return prevElements;
+      const index = prevElements.findIndex(el => el.id === currentDrawId.current);
+      if (index === -1) return prevElements;
 
-    // ✏️ Pencil
-    if (element.type === "pencil") {
-      const newPath = [...element.path, [offsetX, offsetY]];
+      const element = prevElements[index];
+      let newElement = null;
 
-      return prevElements.map((el, i) =>
-        i === index ? { ...el, path: newPath } : el
-      );
-    }
-
-    // 📏 Line / ⬛ Rectangle / ⭕ Circle
-    if (element.type === "line" || element.type === "rectangle" || element.type === "circle") {
-      return prevElements.map((el, i) =>
-        i === index
-          ? { ...el, x2: offsetX, y2: offsetY }
-          : el
-      );
-    }
-    if (element.type === "eraser") {
-  const newPath = [...element.path, [offsetX, offsetY]];
-
-  return prevElements.map((el, i) =>
-    i === index ? { ...el, path: newPath } : el
-  );
-}
-
-    return prevElements;
-  });
-};
-
-  const handleMouseUp = () => {
-    setIsDrawing(false);
-    
-    // Ensure final state after stroke finishes is perfectly synced
-    if(userId?.presenter) {
-      if(canvasRef.current) {
-        const canvasImage = canvasRef.current.toDataURL();
-        socket.emit("whiteboard-data", canvasImage);
+      if (element.type === "pencil" || element.type === "eraser") {
+        const newPath = [...element.path, [offsetX, offsetY]];
+        newElement = { ...element, path: newPath };
+      } else {
+        newElement = { ...element, x2: offsetX, y2: offsetY };
       }
+
+      updatedElementWrapper = newElement;
+
+      const newArray = [...prevElements];
+      newArray[index] = newElement;
+      return newArray;
+    });
+
+    // Throttle WebSocket emission to ~30fps to avoid network flood
+    const now = Date.now();
+    if (now - lastEmitTime.current >= 30 && updatedElementWrapper) {
+      lastEmitTime.current = now;
+      socket.emit("element-update", updatedElementWrapper);
     }
   };
-  
 
- if (!userId?.presenter) {
-    return (
-      <div className="w-100 d-flex justify-content-center">
-        {img ? (
-          <img 
-            src={img} 
-            alt="Shared Board" 
-            style={{ 
-              display: "block",
-              backgroundColor: "white", // 👈 Ensure visibility
-              width: "100%",
-              maxWidth: "1000px",
-              aspectRatio: "1000/550"
-            }} 
-          />
-        ) : (
-          <div className="d-flex align-items-center justify-content-center bg-white border rounded shadow-sm" style={{ width: "100%", maxWidth: "1000px", aspectRatio: "1000/550" }}>
-             <p className="text-muted">Connecting to presenter...</p>
-          </div>
-        )}
-      </div>
-    );
-  }
+  const handleMouseUp = () => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
+
+    // Final sync for perfection
+    if (canEdit && currentDrawId.current) {
+      const element = elements.find(e => e.id === currentDrawId.current);
+      if (element) {
+        socket.emit("element-update", element);
+      }
+    }
+    currentDrawId.current = null;
+  };
+
   return (
-    <>
-      <canvas
-        width={1000}
-        height={550}
-        ref={canvasRef}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        className={tool === "eraser" ? "canvas-eraser" : "canvas-pencil"}
-      />
-    </>
+    <canvas
+      ref={canvasRef}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseOut={handleMouseUp}
+      className={tool === "eraser" ? "canvas-eraser" : "canvas-pencil"}
+      style={{ pointerEvents: canEdit ? 'auto' : 'none' }} // Ensure no click events slip through if they can't edit
+    />
   );
 };
 

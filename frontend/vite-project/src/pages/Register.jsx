@@ -31,28 +31,28 @@ const Register = () => {
     };
 
     return (
-        <div className="container mt-5">
-            <div className="row justify-content-center">
-                <div className="col-md-6 border p-4 rounded shadow-sm bg-white text-dark">
-                    <h2 className="text-center mb-4">Register</h2>
-                    {error && <div className="alert alert-danger">{error}</div>}
-                    <form onSubmit={handleSubmit}>
-                        <div className="form-group mb-3">
-                            <label>Name</label>
-                            <input type="text" name="name" className="form-control" value={formData.name} onChange={handleChange} required />
-                        </div>
-                        <div className="form-group mb-3">
-                            <label>Email address</label>
-                            <input type="email" name="email" className="form-control" value={formData.email} onChange={handleChange} required />
-                        </div>
-                        <div className="form-group mb-4">
-                            <label>Password</label>
-                            <input type="password" name="password" className="form-control" value={formData.password} onChange={handleChange} required />
-                        </div>
-                        <button type="submit" className="btn btn-primary w-100">Register</button>
-                    </form>
-                    <p className="mt-3 text-center">Already have an account? <Link to="/login">Login</Link></p>
-                </div>
+        <div className="auth-wrapper">
+            <div className="glass-container w-100" style={{ maxWidth: '450px' }}>
+                <h2 className="text-center mb-4 text-gradient">Create Account</h2>
+                {error && <div className="alert alert-danger" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.4)' }}>{error}</div>}
+                <form onSubmit={handleSubmit}>
+                    <div className="form-group mb-3">
+                        <label className="mb-2" style={{ color: 'var(--text-muted)' }}>Name</label>
+                        <input type="text" name="name" className="premium-input" placeholder="Your Name" value={formData.name} onChange={handleChange} required />
+                    </div>
+                    <div className="form-group mb-3">
+                        <label className="mb-2" style={{ color: 'var(--text-muted)' }}>Email address</label>
+                        <input type="email" name="email" className="premium-input" placeholder="you@example.com" value={formData.email} onChange={handleChange} required />
+                    </div>
+                    <div className="form-group mb-5">
+                        <label className="mb-2" style={{ color: 'var(--text-muted)' }}>Password</label>
+                        <input type="password" name="password" className="premium-input" placeholder="••••••••" value={formData.password} onChange={handleChange} required />
+                    </div>
+                    <button type="submit" className="premium-btn w-100">Sign Up</button>
+                </form>
+                <p className="mt-4 text-center" style={{ color: 'var(--text-muted)' }}>
+                    Already have an account? <Link to="/login" className="modern-link">Login</Link>
+                </p>
             </div>
         </div>
     );

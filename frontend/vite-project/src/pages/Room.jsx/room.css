@@ -3,92 +3,27 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: 10px;
   width: 100%;
-  padding-bottom: 2rem;
+  height: 100%;
 }
 
-/* Canvas styling (VERY IMPORTANT) */
-canvas, .whiteboard-container > img {
+/* Canvas styling */
+canvas {
   width: 100%;
-  max-width: 1000px;
-  height: auto;
-  aspect-ratio: 1000 / 550;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   background-color: #ffffff;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  border: 1px solid var(--gray-200);
+  box-shadow: var(--glass-shadow);
+  border: 1px solid var(--glass-border);
+  cursor: crosshair;
 }
 
-/* Buttons styling */
-button {
-  min-width: 80px;
+canvas.canvas-pencil {
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="%233b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>') 0 20, auto;
 }
 
-/* Color picker */
-input[type="color"] {
-  width: 50px;
-  height: 40px;
-  border: none;
-  cursor: pointer;
-}
-
-
-/* Container alignment improvement */
-label[for="color"] {
-  font-weight: 600;
-  font-size: 14px;
-  color: #2c2c2c;
-  margin-right: 10px;
-}
-
-/* Color input base */
-#color {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 55px;
-  height: 40px;
-  border: none;
-  cursor: pointer;
-  border-radius: 10px;
-  background: none;
-  padding: 0;
-  transition: all 0.2s ease;
-}
-
-/* Remove default padding */
-#color::-webkit-color-swatch-wrapper {
-  padding: 0;
-}
-
-/* Main color box */
-#color::-webkit-color-swatch {
-  border-radius: 10px;
-  border: 2px solid #dcdcdc;
-}
-
-/* Firefox */
-#color::-moz-color-swatch {
-  border-radius: 10px;
-  border: 2px solid #dcdcdc;
-}
-
-/* Hover effect */
-#color:hover {
-  transform: scale(1.08);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
-}
-
-/* Focus (active click) */
-#color:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.4);
-}
-
-/* Optional: subtle background panel */
-.color-wrapper {
-  background: #ffffff;
-  padding: 8px 12px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+canvas.canvas-eraser {
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="%23cbd5e1" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="4" ry="4"/></svg>') 15 15, auto;
 }

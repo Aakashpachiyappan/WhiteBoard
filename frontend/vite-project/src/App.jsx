@@ -1,19 +1,19 @@
 import './App.css'
-import Form from './components/Form/form'
+import Home from './pages/Dashboard'
 import Room from './pages/Room.jsx/room'
 import Login from './pages/Login'
 import Register from './pages/Register'
-import { Route , Routes, Navigate } from 'react-router-dom'
+import { Route, Routes, Navigate } from 'react-router-dom'
 import { io } from 'socket.io-client';
-import { useState , useEffect} from 'react';
+import { useState, useEffect } from 'react';
 
 
 const server = 'http://localhost:5000';
 const connectionOptions = {
-  "force new connection" : true,
+  "force new connection": true,
   "reconnectionAttempts": "Infinity",
-  "timeout" : 10000,
-  "transports" : ["websocket"]
+  "timeout": 10000,
+  "transports": ["websocket"]
 };
 
 const socket = io(server, connectionOptions);
@@ -24,21 +24,21 @@ const App = () => {
 
   useEffect(() => {
     socket.on('user-joined-success', (data) => {
-      if(data.success){
+      if (data.success) {
         console.log('User joined successfully');
-      }else{
+      } else {
         console.log('Failed to join the room');
       }
     });
 
     return () => {
-        socket.off('user-joined-success');
+      socket.off('user-joined-success');
     }
   }, []);
 
-  const uuid = () =>{
-    var S4 = () =>{
-      return (((1+Math.random())*0x10000)|0).toString(16).substring(1);
+  const uuid = () => {
+    var S4 = () => {
+      return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
     };
     return (S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4());
   }
@@ -51,21 +51,21 @@ const App = () => {
     }
     return children;
   };
-  
+
   return (
     <div className="container">
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/" element={
-            <ProtectedRoute>
-                <Form uuid={uuid} socket={socket} setUserId={setUserId} />
-            </ProtectedRoute>
+          <ProtectedRoute>
+            <Home uuid={uuid} socket={socket} setUserId={setUserId} />
+          </ProtectedRoute>
         } />
         <Route path="/:roomId" element={
-            <ProtectedRoute>
-                <Room userId={userId} socket={socket}/>
-            </ProtectedRoute>
+          <ProtectedRoute>
+            <Room userId={userId} socket={socket} />
+          </ProtectedRoute>
         } />
       </Routes>
     </div>

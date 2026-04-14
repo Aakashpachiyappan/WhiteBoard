@@ -33,24 +33,24 @@ const Login = () => {
     };
 
     return (
-        <div className="container mt-5">
-            <div className="row justify-content-center">
-                <div className="col-md-6 border p-4 rounded shadow-sm bg-white text-dark">
-                    <h2 className="text-center mb-4">Login</h2>
-                    {error && <div className="alert alert-danger">{error}</div>}
-                    <form onSubmit={handleSubmit}>
-                        <div className="form-group mb-3">
-                            <label>Email address</label>
-                            <input type="email" name="email" className="form-control" value={credentials.email} onChange={handleChange} required />
-                        </div>
-                        <div className="form-group mb-4">
-                            <label>Password</label>
-                            <input type="password" name="password" className="form-control" value={credentials.password} onChange={handleChange} required />
-                        </div>
-                        <button type="submit" className="btn btn-primary w-100">Login</button>
-                    </form>
-                    <p className="mt-3 text-center">Don't have an account? <Link to="/register">Register</Link></p>
-                </div>
+        <div className="auth-wrapper">
+            <div className="glass-container w-100" style={{ maxWidth: '400px' }}>
+                <h2 className="text-center mb-4 text-gradient">Welcome Back</h2>
+                {error && <div className="alert alert-danger" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.4)' }}>{error}</div>}
+                <form onSubmit={handleSubmit}>
+                    <div className="form-group mb-4">
+                        <label className="mb-2" style={{ color: 'var(--text-muted)' }}>Email address</label>
+                        <input type="email" name="email" className="premium-input" placeholder="you@example.com" value={credentials.email} onChange={handleChange} required />
+                    </div>
+                    <div className="form-group mb-5">
+                        <label className="mb-2" style={{ color: 'var(--text-muted)' }}>Password</label>
+                        <input type="password" name="password" className="premium-input" placeholder="••••••••" value={credentials.password} onChange={handleChange} required />
+                    </div>
+                    <button type="submit" className="premium-btn w-100">Sign In</button>
+                </form>
+                <p className="mt-4 text-center" style={{ color: 'var(--text-muted)' }}>
+                    Don't have an account? <Link to="/register" className="modern-link">Register</Link>
+                </p>
             </div>
         </div>
     );
