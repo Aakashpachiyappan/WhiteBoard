@@ -2,6 +2,9 @@ const express = require('express');
 const app = express();
 const server = require('http').createServer(app);
 const {Server} = require('socket.io');
+const mongoose = require('mongoose');
+const authRoutes = require('./routes/authRoutes');
+const cors = require('cors');
 
 const io = new Server(server, {
     cors : {
@@ -9,6 +12,19 @@ const io = new Server(server, {
         methods : ['GET', 'POST']
     }
 });
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// MongoDB Connection
+const MONGO_URI = 'mongodb+srv://aakashaakash6842_db_user:Aakashkavi%40123@cluster0.surlrng.mongodb.net/?appName=Cluster0';
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('MongoDB Connected successfully'))
+  .catch(err => console.log('MongoDB connection error:', err));
+
+// Routes
+app.use('/api/auth', authRoutes);
 
 app.get('/', (req, res) => {
     res.send('This is mern realtime whiteboard backend');

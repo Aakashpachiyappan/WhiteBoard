@@ -1,8 +1,9 @@
-
 import './App.css'
 import Form from './components/Form/form'
 import Room from './pages/Room.jsx/room'
-import { Route , Routes } from 'react-router-dom'
+import Login from './pages/Login'
+import Register from './pages/Register'
+import { Route , Routes, Navigate } from 'react-router-dom'
 import { io } from 'socket.io-client';
 import { useState , useEffect} from 'react';
 
@@ -29,6 +30,10 @@ const App = () => {
         console.log('Failed to join the room');
       }
     });
+
+    return () => {
+        socket.off('user-joined-success');
+    }
   }, []);
 
   const uuid = () =>{
@@ -37,12 +42,31 @@ const App = () => {
     };
     return (S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4());
   }
+
+  // Simple auth check
+  const ProtectedRoute = ({ children }) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      return <Navigate to="/login" />;
+    }
+    return children;
+  };
   
   return (
     <div className="container">
       <Routes>
-        <Route path="/" element={<Form uuid={uuid} socket={socket} setUserId={setUserId}  />} />
-        <Route path="/:roomId" element={<Room  userId={userId} socket={socket}/>} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/" element={
+            <ProtectedRoute>
+                <Form uuid={uuid} socket={socket} setUserId={setUserId} />
+            </ProtectedRoute>
+        } />
+        <Route path="/:roomId" element={
+            <ProtectedRoute>
+                <Room userId={userId} socket={socket}/>
+            </ProtectedRoute>
+        } />
       </Routes>
     </div>
   )
