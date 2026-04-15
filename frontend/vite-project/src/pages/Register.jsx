@@ -18,12 +18,17 @@ const Register = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
-            const data = await response.json();
-            
-            if (response.ok) {
-                navigate('/login');
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                const data = await response.json();
+                
+                if (response.ok) {
+                    navigate('/login');
+                } else {
+                    setError(data.message || 'Registration failed');
+                }
             } else {
-                setError(data.message || 'Registration failed');
+                setError('The server is currently waking up or deploying. Please try again in a few moments.');
             }
         } catch (err) {
             setError('Server error during registration. Please try again.');

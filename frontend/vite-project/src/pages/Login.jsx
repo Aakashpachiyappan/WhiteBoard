@@ -18,14 +18,19 @@ const Login = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(credentials)
             });
-            const data = await response.json();
-            
-            if (response.ok) {
-                sessionStorage.setItem('token', data.token);
-                sessionStorage.setItem('user', JSON.stringify(data.user));
-                navigate('/');
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                const data = await response.json();
+                
+                if (response.ok) {
+                    sessionStorage.setItem('token', data.token);
+                    sessionStorage.setItem('user', JSON.stringify(data.user));
+                    navigate('/');
+                } else {
+                    setError(data.message || 'Login failed');
+                }
             } else {
-                setError(data.message || 'Login failed');
+                setError('The server is currently waking up or deploying. Please try again in a few moments.');
             }
         } catch (err) {
             setError('Server error during login. Please try again.');
