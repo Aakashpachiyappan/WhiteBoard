@@ -45,7 +45,7 @@ const App = () => {
 
   // Simple auth check
   const ProtectedRoute = ({ children }) => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) {
       return <Navigate to="/login" />;
     }

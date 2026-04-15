@@ -8,8 +8,8 @@ const CreateForm = ({ uuid, socket, setUserId }) => {
   const handleCreateRoom = (e) => {
     e.preventDefault();
 
-    // Safely get user info from localStorage
-    const savedUser = localStorage.getItem('user');
+    // Safely get user info from sessionStorage
+    const savedUser = sessionStorage.getItem('user');
     const user = savedUser ? JSON.parse(savedUser) : { name: 'Unknown User' };
 
     const roomData = {

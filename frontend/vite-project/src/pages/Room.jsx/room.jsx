@@ -88,13 +88,23 @@ const Room = ({ userId, socket }) => {
     socket.emit("kick-user", { roomId: userId.roomId, targetUserId });
   };
 
-  const tools = [
-    { id: "pencil", label: "✏️ Pencil" },
-    { id: "eraser", label: "🧽 Eraser" },
-    { id: "line", label: "📏 Line" },
-    { id: "rectangle", label: "⬛ Rectangle" },
-    { id: "circle", label: "⭕ Circle" },
-  ];
+  const toolGroups = {
+    "Freehand": [
+      { id: "pencil", label: "✏️ Pencil" },
+      { id: "spray", label: "💨 Spray" },
+      { id: "eraser", label: "🧽 Eraser" },
+    ],
+    "Shapes": [
+      { id: "line", label: "📏 Line" },
+      { id: "rectangle", label: "⬛ Rect" },
+      { id: "circle", label: "⭕ Circle" },
+      { id: "triangle", label: "🔺 Triangle" },
+      { id: "diamond", label: "🔶 Diamond" },
+    ],
+    "Actions": [
+      { id: "fill", label: "🪣 Bucket Fill" },
+    ]
+  };
 
   return (
     <div className="container-fluid d-flex flex-row p-0 m-0" style={{ height: '100vh', overflow: 'hidden', background: 'var(--bg-main)' }}>
@@ -134,17 +144,24 @@ const Room = ({ userId, socket }) => {
                     </div>
                 ) : (
                     <>
-                        <div className="d-flex flex-wrap gap-2 mb-4">
-                        {tools.map((t) => (
-                            <button
-                            key={t.id}
-                            className={`btn btn-sm flex-grow-1 ${tool === t.id ? 'btn-primary' : 'btn-outline-secondary'}`}
-                            onClick={() => setTool(t.id)}
-                            style={{ fontWeight: 500 }}
-                            >
-                            {t.label}
-                            </button>
-                        ))}
+                        <div className="d-flex flex-column gap-3 mb-4">
+                            {Object.entries(toolGroups).map(([groupName, tools]) => (
+                                <div key={groupName}>
+                                    <label className="text-muted small fw-bold mb-1">{groupName}</label>
+                                    <div className="d-flex flex-wrap gap-2">
+                                        {tools.map((t) => (
+                                            <button
+                                              key={t.id}
+                                              className={`btn btn-sm flex-grow-1 ${tool === t.id ? 'btn-primary' : 'btn-outline-secondary'}`}
+                                              onClick={() => setTool(t.id)}
+                                              style={{ fontWeight: 500 }}
+                                            >
+                                              {t.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
 
                         <div className="d-flex align-items-center justify-content-between mb-4">

@@ -7,6 +7,25 @@ const Whiteboard = ({ canvasRef, ctxRef, elements, setElements, tool, setHistory
   const lastEmitTime = useRef(0);
   const currentDrawId = useRef(null);
 
+  const hitTest = (x, y, element) => {
+    if (element.type === 'rectangle' || element.type === 'triangle' || element.type === 'diamond') {
+      const minX = Math.min(element.x1, element.x2);
+      const maxX = Math.max(element.x1, element.x2);
+      const minY = Math.min(element.y1, element.y2);
+      const maxY = Math.max(element.y1, element.y2);
+      return x >= minX && x <= maxX && y >= minY && y <= maxY;
+    }
+    if (element.type === 'circle') {
+      const cx = (element.x1 + element.x2) / 2;
+      const cy = (element.y1 + element.y2) / 2;
+      const rx = Math.abs(element.x2 - element.x1) / 2;
+      const ry = Math.abs(element.y2 - element.y1) / 2;
+      if (rx === 0 || ry === 0) return false;
+      return Math.pow((x - cx) / rx, 2) + Math.pow((y - cy) / ry, 2) <= 1;
+    }
+    return false;
+  };
+
   // Helper to map mouse coordinates correctly when canvas is scaled via CSS
   const getMappedCoordinates = (e) => {
     if (!canvasRef.current) return { offsetX: 0, offsetY: 0 };
@@ -103,7 +122,7 @@ const Whiteboard = ({ canvasRef, ctxRef, elements, setElements, tool, setHistory
       if (element.type === "rectangle") {
         roughCanvas.rectangle(
           element.x1, element.y1, element.x2 - element.x1, element.y2 - element.y1,
-          { stroke: element.stroke, strokeWidth: element.strokeWidth, roughness: 0, bowing: 0 }
+          { stroke: element.stroke, strokeWidth: element.strokeWidth, fill: element.fill, fillStyle: element.fillStyle, roughness: 0, bowing: 0 }
         );
       }
 
@@ -114,8 +133,40 @@ const Whiteboard = ({ canvasRef, ctxRef, elements, setElements, tool, setHistory
         const centerY = element.y1 + (element.y2 - element.y1) / 2;
         roughCanvas.ellipse(
           centerX, centerY, radiusX * 2, radiusY * 2,
-          { stroke: element.stroke, strokeWidth: element.strokeWidth, roughness: 0, bowing: 0 }
+          { stroke: element.stroke, strokeWidth: element.strokeWidth, fill: element.fill, fillStyle: element.fillStyle, roughness: 0, bowing: 0 }
         );
+      }
+
+      if (element.type === "triangle") {
+        roughCanvas.polygon(
+          [
+            [element.x1 + (element.x2 - element.x1) / 2, element.y1],
+            [element.x1, element.y2],
+            [element.x2, element.y2]
+          ],
+          { stroke: element.stroke, strokeWidth: element.strokeWidth, fill: element.fill, fillStyle: element.fillStyle, roughness: 0, bowing: 0 }
+        );
+      }
+
+      if (element.type === "diamond") {
+        roughCanvas.polygon(
+          [
+            [element.x1 + (element.x2 - element.x1) / 2, element.y1],
+            [element.x2, element.y1 + (element.y2 - element.y1) / 2],
+            [element.x1 + (element.x2 - element.x1) / 2, element.y2],
+            [element.x1, element.y1 + (element.y2 - element.y1) / 2]
+          ],
+          { stroke: element.stroke, strokeWidth: element.strokeWidth, fill: element.fill, fillStyle: element.fillStyle, roughness: 0, bowing: 0 }
+        );
+      }
+
+      if (element.type === "spray") {
+        ctx.fillStyle = element.stroke;
+        element.path.forEach(([x, y]) => {
+          ctx.beginPath();
+          ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        });
       }
 
       // 🧽 ERASER
@@ -145,6 +196,25 @@ const Whiteboard = ({ canvasRef, ctxRef, elements, setElements, tool, setHistory
     // Save history BEFORE drawing
     setHistory((prev) => [...prev, elements]);
 
+    if (tool === "fill") {
+      let targetIndex = -1;
+      for (let i = elements.length - 1; i >= 0; i--) {
+        if (hitTest(offsetX, offsetY, elements[i])) {
+          targetIndex = i;
+          break;
+        }
+      }
+
+      if (targetIndex !== -1) {
+        const newElements = [...elements];
+        const targetElement = { ...newElements[targetIndex], fill: color, fillStyle: 'solid' };
+        newElements[targetIndex] = targetElement;
+        setElements(newElements);
+        socket.emit("element-update", targetElement);
+      }
+      return;
+    }
+
     const elementId = Date.now().toString() + Math.random().toString(36).substring(2, 5);
     currentDrawId.current = elementId;
 
@@ -158,7 +228,15 @@ const Whiteboard = ({ canvasRef, ctxRef, elements, setElements, tool, setHistory
         stroke: color,
         strokeWidth: size
       };
-    } else if (tool === "line" || tool === "rectangle" || tool === "circle") {
+    } else if (tool === "spray") {
+      newElement = {
+        id: elementId,
+        type: tool,
+        path: [],
+        stroke: color,
+        strokeWidth: size
+      };
+    } else if (tool === "line" || tool === "rectangle" || tool === "circle" || tool === "triangle" || tool === "diamond") {
       newElement = {
         id: elementId,
         type: tool,
@@ -192,6 +270,15 @@ const Whiteboard = ({ canvasRef, ctxRef, elements, setElements, tool, setHistory
       if (element.type === "pencil" || element.type === "eraser") {
         const newPath = [...element.path, [offsetX, offsetY]];
         newElement = { ...element, path: newPath };
+      } else if (element.type === "spray") {
+        const radius = element.strokeWidth * 4;
+        const newPoints = [];
+        for (let i = 0; i < Math.max(8, element.strokeWidth * 3); i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const r = Math.random() * radius;
+          newPoints.push([Math.round(offsetX + r * Math.cos(angle)), Math.round(offsetY + r * Math.sin(angle))]);
+        }
+        newElement = { ...element, path: [...element.path, ...newPoints] };
       } else {
         newElement = { ...element, x2: offsetX, y2: offsetY };
       }
