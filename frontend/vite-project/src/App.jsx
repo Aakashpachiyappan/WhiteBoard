@@ -8,7 +8,7 @@ import { io } from 'socket.io-client';
 import { useState, useEffect } from 'react';
 
 
-const server = 'http://localhost:5000';
+const server = 'https://whiteboard-ppc9.onrender.com';
 const connectionOptions = {
   "force new connection": true,
   "reconnectionAttempts": "Infinity",
